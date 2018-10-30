@@ -6,11 +6,13 @@ void print_complex_number(complex_number number)
 {
     if(number.img != (int)number.img || number.real != (int)number.real) // если хотя бы одна часть не целая
     {
-        printf("result=%0.2f+(%0.2f*i)\n", number.real, number.img);
+	if (number.img < 0) printf("result=%0.2f%0.2f*i\n", number.real, number.img);
+	else printf("result=%0.2f+%0.2f*i\n", number.real, number.img);
     }
     else // числа целые
     {
-        printf("result=%d+(%d*i)\n", (int)number.real, (int)number.img);
+	if (number.img < 0) printf("result=%d%d*i\n", (int)number.real, (int)number.img);
+	else printf("result=%d+%d*i\n", (int)number.real, (int)number.img);
     }
 }
 
