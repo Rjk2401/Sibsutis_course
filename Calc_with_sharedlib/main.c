@@ -1,54 +1,79 @@
+#include <dirent.h>
 #include <dlfcn.h>
-#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
-#include "operations.h"
+#include "interface.h"
 
 int main(int argc, char** argv)
 {
-    int action = 0;
-    bool flag = false;  //для выхода из цикла while(1) через case(action=5)
-    char menu[50] = ""; //меню выбора действий калькулятора
     complex_number first_number;
     complex_number second_number;
     complex_number result;
-    
-    /*Указатели на адреса подключаемых библиотек*/
-    void* add_library = NULL; 
-    void* sub_library = NULL;
-    void* mul_library = NULL;
-    void* div_library = NULL;
-    void* print_library = NULL;
-    /*Указатели на функции*/
-    void (*addptr)(complex_number, complex_number, complex_number*) = NULL;
-    void (*subptr)(complex_number, complex_number, complex_number*) = NULL;
-    void (*mulptr)(complex_number, complex_number, complex_number*) = NULL;
-    void (*divptr)(complex_number, complex_number, complex_number*) = NULL;
-    void (*printptr)(complex_number) = NULL;
-    
-    add_library = dlopen("libadd.so", RTLD_LAZY);
-    sub_library = dlopen("libsub.so", RTLD_LAZY);
-    mul_library = dlopen("libmul.so", RTLD_LAZY);
-    div_library = dlopen("libdiv.so", RTLD_LAZY);
-    print_library = dlopen("libprint.so", RTLD_LAZY);
-      
-    addptr = dlsym(add_library, "add");
-    subptr = dlsym(sub_library, "sub");
-    mulptr = dlsym(mul_library, "mul");
-    divptr = dlsym(div_library, "div");
-    printptr = dlsym(print_library, "print_complex_number");
+    int action = 0; //действие в меню
+    char menu[MENU_SIZE] = ""; //меню выбора действий калькулятора     
 
-    /*Формирование меню в зависимости от подключенных библиотек*/
-    if(add_library)
-        strcat(menu, "1-add;");
-    if(sub_library)
-        strcat(menu, "2-sub;");
-    if(mul_library)
-        strcat(menu, "3-mul;");
-    if(div_library)
-        strcat(menu, "4-div;");
-    strcat(menu, "5-quit.\n");
+    DIR* dir; 
+    struct dirent* entry; // структура для readdir
+    int count_plugins = 0; //счетчик плагинов
+    int i = 0; //цикловой счетчик
+    char** libs_name; //строковый массив имен плагинов
+    
+    dir = opendir("./Plugins");
+    if(!dir)
+    {
+        perror("diropen");
+        exit(1);
+    };
+    
+    //подсчет количества плагинов
+    while((entry = readdir(dir)) != NULL)
+    {
+        if(strstr(entry->d_name, ".so"))
+            count_plugins++;
+    };
+    closedir(dir);
+
+    //выделяем память для массива строк (имен плагинов)
+    libs_name = (char**)malloc(sizeof(char*) * count_plugins);
+
+    dir = opendir("./Plugins");
+    //заносим имена плагинов в массив строк
+    while((entry = readdir(dir)) != NULL)
+    {
+        if(strstr(entry->d_name, ".so"))
+        {
+            //выделяем память с учетом длины имени,'\0' и с "./Plugins/" т.е +11 байт,
+            // calloc - т.к strcat требует nul terminated (malloc не инициализирует нулями)
+            libs_name[i] = (char*)calloc((strlen(entry->d_name) + 11), sizeof(char));
+            strcat(libs_name[i], "./Plugins/");
+            strcat(libs_name[i], entry->d_name);
+            i++;
+        }
+    };
+
+    closedir(dir);
+
+    /*Массив указателей на адреса подключаемых библиотек*/
+    void** mas_lib;
+    mas_lib = (void**)malloc(sizeof(void*) * count_plugins);
+    /*Указатель на подключаемую функцию*/
+    void (*func_ptr)(complex_number, complex_number, complex_number*);
+    /*Массив имен функций*/
+    char** mas_func_name;
+    /*Выделяем память для массива имен функций*/
+    mas_func_name = (char**)malloc(sizeof(char*) * count_plugins);
+
+    for(i = 0; i < count_plugins; i++)
+    {
+        mas_lib[i] = dlopen(libs_name[i], RTLD_LAZY);
+        mas_func_name[i] = (char*)dlsym(mas_lib[i], "name_function");
+    }
+    
+   /*Формирование меню в зависимости от подключенных библиотек*/
+    create_menu(menu, mas_func_name, count_plugins);
 
     while(1)
     {
@@ -58,76 +83,39 @@ int main(int argc, char** argv)
         {
             printf("Enter number! try again\n");
             while(getchar() != '\n');
-        }        
-        
-        if(action >= 1 && action <= 4) //нужен ли ввод ввод чисел
-        {    
-            if((action == 1 && addptr != 0) || (action == 2 && subptr != 0) || (action == 3 && mulptr != 0) ||
-                (action == 4 && divptr != 0)) //Ввод чисел (при условии что функция подгружена)
-            {
-                printf("Enter number1 real and img part separated by space\n");
-                scanf("%f %f", &first_number.real, &first_number.img);
-                printf("Enter number2 real and img part separated by space\n");
-                scanf("%f %f", &second_number.real, &second_number.img);
-            }
         }
 
-        switch(action)
+        if(action >= 1 && action <= count_plugins)
         {
-        case 1:
-            if(addptr)
-            {
-                addptr(first_number, second_number, &result);
-                printptr(result);
-            }
-            else
-                printf("unavailable function\n");
-            break;
-        case 2:
-            if(subptr)
-            {
-                subptr(first_number, second_number, &result);
-                printptr(result);
-            }
-            else
-                printf("unavailable function\n");
-            break;
-        case 3:
-            if(mulptr)
-            {
-                mulptr(first_number, second_number, &result);
-                printptr(result);
-            }
-            else
-                printf("unavailable function\n");
-            break;
-        case 4:
-            if(divptr)
-            {
-                divptr(first_number, second_number, &result);
-                printptr(result);
-            }
-            else
-                printf("unavailable function\n");
-            break;
-        case 5:
-            flag = true;
+            printf("Enter number1 real and img part separated by space\n");
+            scanf("%f %f", &first_number.real, &first_number.img);
+            printf("Enter number2 real and img part separated by space\n");
+            scanf("%f %f", &second_number.real, &second_number.img);
+            func_ptr = dlsym(mas_lib[action - 1], mas_func_name[action - 1]);
+            func_ptr(first_number, second_number, &result);
+            print_complex_number(result);
+        }
+
+        if(action == count_plugins + 1)
+        {
             printf("Exit\n");
-            break;
-        default:
-            printf("Wrong action\n");
-            break;
-        }
-
-        if(flag == true) //выход из бесконечного цикла
-        {
-            if (add_library) dlclose(add_library); //удаление библиотек из памяти 
-            if (sub_library) dlclose(sub_library);
-            if (mul_library) dlclose(mul_library);
-            if (div_library) dlclose(div_library);
-            if (print_library) dlclose(print_library);
             break;
         }
     }
+    
+    /*удаление библиотек из памяти*/
+    for(i = 0; i < count_plugins; i++)
+    {
+        dlclose(mas_lib[i]);
+    }
+    /*освобождаем память строк и массивов*/
+    for(i = 0; i < count_plugins; i++)
+    {
+        free(libs_name[i]); // освобождаем память для отдельной строки
+    }
+    free(libs_name);
+    free(mas_lib);
+    free(mas_func_name);
+
     return 0;
 }
