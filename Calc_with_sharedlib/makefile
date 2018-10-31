@@ -1,0 +1,27 @@
+# Название компилятора
+CC = gcc
+# Текущий каталог
+TARGET=$(shell basename `pwd`)
+#Исходники: в данном случае - все файлы текущего каталога с расширением .c.
+SOURCES=$(wildcard *.c)
+# Имена объектных файлов получены текстовой заменой в именах исходников
+OBJECTS=$(SOURCES:%.c=%.o)
+# Флаги для компилятора
+CFLAGS =-std=c99 -Wall -Werror
+# Флаги компоновщика (линковщика)
+LDFLAGS=-ldl
+# Статические библиотеки
+STATIC_LIB=
+# Динамические библиотеки
+SHARED_LIB=
+
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) $^ -o run $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@ 
+
+clean:
+	rm -rf *.o run
