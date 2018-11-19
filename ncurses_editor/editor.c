@@ -105,8 +105,6 @@ void edit_mode(WINDOW* edit_wnd)
                 else
                     break;
             case KEY_F(2): // open_file
-                wclear(edit_wnd);
-                wrefresh(edit_wnd);
                 open_file(filename, edit_wnd);
                 wrefresh(edit_wnd);
                 break;
@@ -141,9 +139,11 @@ void open_file(char* filename, WINDOW* edit_wnd)
         wclear(subwnd);
         wbkgd(subwnd, COLOR_PAIR(0));
         delwin(subwnd);
+	filename=" ";
     }
     else //если файл открылся
     {
+
         move(1, 0);
         do
         {
@@ -167,7 +167,7 @@ void save_file(char* filename, WINDOW* edit_wnd)
     char ch;
     int num_cols_in_row = COLS;
 
-    file_fd = open("123", O_WRONLY);
+    file_fd = open(filename, O_WRONLY);
 
     if(file_fd <= 0)
     {
