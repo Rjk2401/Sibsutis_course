@@ -50,11 +50,11 @@ void edit_mode(WINDOW* edit_wnd)
             case KEY_F(10): // exit
                 exit_editor(edit_wnd);
                 break;
-            case KEY_F(3): // save 
-                    save_file(filename, edit_wnd);
-                    endwin();
-                    exit(EXIT_SUCCESS);
-		break;
+            case KEY_F(3): // save end exit
+                save_file(filename, edit_wnd);
+                delwin(edit_wnd);
+                endwin();
+                exit(EXIT_SUCCESS);
             case KEY_F(2): // open_file
                 wclear(edit_wnd);
                 wrefresh(edit_wnd);
@@ -94,7 +94,6 @@ void open_file(char* filename, WINDOW* edit_wnd)
         wclear(subwnd);
         wbkgd(subwnd, COLOR_PAIR(0));
         delwin(subwnd);
-
     }
     else //если файл открылся
     {
@@ -134,6 +133,7 @@ void exit_editor(WINDOW* edit_wnd)
     if(strcmp(answer, "yes") == 0)
     {
         delwin(subwnd);
+        delwin(edit_wnd);
         endwin();
         exit(EXIT_SUCCESS);
     }
@@ -151,7 +151,7 @@ void save_file(char* filename, WINDOW* edit_wnd)
     int file_fd;
     int row = 1, col = 0;
     char ch;
-    int num_cols_in_row; //число столбцов в строке
+    int num_cols_in_row; //число столбцов в строки
     WINDOW* subwnd;
 
     if(strcmp(filename, " ") == 0) //если имя пустое
@@ -180,7 +180,7 @@ void save_file(char* filename, WINDOW* edit_wnd)
         for(row = 1; row < LINES - 1; row++)
         {
             num_cols_in_row = COLS - 1;
-            /*определяем длину текущей строки (до пробела)=> пробелы в конце строки не записываются*/
+            /*определяем длину текущей строки (до пробела)=> пробелы в конце строки удаляются*/
             while(mvinch(row, num_cols_in_row) == ' ' && num_cols_in_row >= 0)
                 num_cols_in_row--;
 

@@ -22,8 +22,10 @@ int main(int argc, char** argv)
 
     wprintw(menu, "  F2-Open file    |    F3-Save file and exit    |    F10-Exit without saving  ");
     wrefresh(menu);
-
+    
     edit_wnd = newwin(LINES - 2, COLS - 2, 1, 0); //окно редактировния
+
+    delwin(menu);//освобождаем ресурсы (меню на экране останется)
 
     edit_mode(edit_wnd);
     return 0;
