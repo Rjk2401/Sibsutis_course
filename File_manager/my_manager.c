@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 
 #include "header.h"
@@ -13,6 +12,7 @@ int main(int argc, char** argv)
     int cmd;                                   //команда с клавиатуры
     char curent_dir_left[MAX_PATH_SIZE] = "";  //текущая левая директория
     char curent_dir_right[MAX_PATH_SIZE] = ""; //текущая правая директория
+    char editor_path[MAX_PATH_SIZE] = "";      //директория редактора
     int row_left = 2;                          //текущее положение курсора левой части
     int col_left = 1;
     int row_right = 2; //текущее положение курсора правой части
@@ -20,6 +20,7 @@ int main(int argc, char** argv)
     int file_number_left = 0;  //текущий (выделенный *) номер файла слева
     int file_number_right = 0; //текущий (выделенный *) номер файла справа
     int mode = 0;              //режим (0-левая часть;1-правая часть)
+    pid_t pid;                 //идентификатор процесса
 
     WINDOW* left_wnd;           //левое окно с именами файлов
     WINDOW* left_wnd_property;  //левое окно c параметрами
@@ -56,12 +57,16 @@ int main(int argc, char** argv)
     /*оформление окон*/
     painting_wnd(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design, right_design, help_wnd,
         current_left, current_right);
-
+    
+    /*получаем путь к редактору*/
+    getcwd(editor_path, MAX_PATH_SIZE);
+    strcat(editor_path,"/Editor");
     /*получение и вывод текущей директории*/
     getcwd(curent_dir_left, MAX_PATH_SIZE);
     getcwd(curent_dir_right, MAX_PATH_SIZE);
     wprintw(current_left, "%s", curent_dir_left);
     wprintw(current_right, "%s", curent_dir_right);
+    
     /*получение структуры struct dirent (изначально оддинаковые)*/
     number_files_left = scandir(".", &namelist_left, 0, alphasort);
     number_files_right = scandir(".", &namelist_right, 0, alphasort);
@@ -162,6 +167,25 @@ int main(int argc, char** argv)
                     /*установка указателя (*) в начало открытой директории*/
                      initial_position(left_design,&row_left, &col_left);                   
                 }
+                if(S_ISREG(file_info.st_mode)) // если это обычный файл
+                {
+                    pid=fork();
+                    if (pid == 0)
+                    {
+                        if (execl(editor_path, "Editor", namelist_left[file_number_left]->d_name, NULL) < 0)
+                        {               
+                            exit(-1);
+                        }  
+                    }
+                    else
+                    {
+                        wait(NULL);
+                        //обновление окон после закрытие редактора                      
+                        init_again(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design, right_design, help_wnd,
+        current_left, current_right);
+                    }
+                }
+                
             }
             else //правая часть активна
             {   //дальнейшие действия аналогичны
@@ -194,6 +218,24 @@ int main(int argc, char** argv)
 
                     initial_position(right_design, &row_right, &col_right);                   
                 }
+                if(S_ISREG(file_info.st_mode)) // если это обычный файл
+                {
+                    pid=fork();
+                    if (pid == 0)
+                    {
+                        if (execl(editor_path, "Editor", namelist_right[file_number_right]->d_name, NULL) < 0)
+                        {               
+                            exit(-1);
+                        }  
+                    }
+                    else
+                    {
+                        wait(NULL);
+                        /*обновление окон после закрытие редактора*/                        
+                        init_again(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design, right_design, help_wnd,
+        current_left, current_right);
+                    }
+                }
             }
             break;
 
@@ -211,8 +253,8 @@ int main(int argc, char** argv)
     
     /*освобождаем память для структур и окон и выходим*/
     free_entries(namelist_left, number_files_left);
-    free_entries(namelist_right, number_files_right);
-
+    free_entries(namelist_right, number_files_right);  
+    
     delwin(left_wnd);
     delwin(right_wnd);
     delwin(left_design);
@@ -222,8 +264,8 @@ int main(int argc, char** argv)
     delwin(current_left);
     delwin(current_right);
     delwin(help_wnd);
-    endwin();
-    exit(EXIT_SUCCESS);
 
+    endwin();
+    
     return 0;
 }

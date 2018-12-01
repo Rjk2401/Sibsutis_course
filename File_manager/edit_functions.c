@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 
 #include "header.h"
@@ -13,7 +12,7 @@ void sig_winch(int signo)
 void read_entries(char* dir_name, int* number_files, struct dirent*** namelist)
 {
     *number_files = scandir(dir_name, namelist, 0, alphasort);
-     /*обработка при получении отрицательного *number_files в файле my_manager.c */
+    /*обработка при получении отрицательного *number_files в файле my_manager.c */
 }
 
 void free_entries(struct dirent** list, int n)
@@ -117,7 +116,7 @@ void painting_wnd(WINDOW* left_wnd,
     wprintw(help_wnd, "Enter-change directory | TAB - Switch window | F10-Exit");
 }
 
-void initial_position(WINDOW* wnd, int *row,int *col)
+void initial_position(WINDOW* wnd, int* row, int* col)
 {
     *row = 2;
     *col = 1;
@@ -125,4 +124,35 @@ void initial_position(WINDOW* wnd, int *row,int *col)
     wmove(wnd, *row, *col);
     wprintw(wnd, "*");
     wrefresh(wnd);
+}
+
+void init_again(WINDOW* left_wnd,
+    WINDOW* left_wnd_property,
+    WINDOW* right_wnd,
+    WINDOW* right_wnd_property,
+    WINDOW* left_design,
+    WINDOW* right_design,
+    WINDOW* help_wnd,
+    WINDOW* current_left,
+    WINDOW* current_right)
+{
+
+    keypad(stdscr, 1);
+    noecho();
+    refresh();
+    cbreak();
+    curs_set(0); //отображение курсора отключено (* управление);
+    wclear(help_wnd);
+
+    painting_wnd(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design, right_design, help_wnd,
+        current_left, current_right);
+    wrefresh(left_design);
+    wrefresh(right_design);
+    wrefresh(left_wnd);
+    wrefresh(right_wnd);
+    wrefresh(left_wnd_property);
+    wrefresh(right_wnd_property);
+    wrefresh(help_wnd);
+    wrefresh(current_left);
+    wrefresh(current_right);
 }

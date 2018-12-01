@@ -9,10 +9,9 @@
 #include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
-#include <sys/dir.h>
+#include <sys/wait.h>
 
 #define MAX_PATH_SIZE 256
-
 /*обработчик сигнала*/
 void sig_winch(int signo);
 
@@ -47,3 +46,14 @@ void down(WINDOW* wnd_design, int* row, int col, int* file_number);
 
 /*изменение активного окна*/
 void change_mode(WINDOW* design_left, WINDOW* design_right, int* mode, char* current_dir_left, char* current_dir_right);
+
+/*отображение окон и их содержимого после закрытие редактора*/
+void init_again(WINDOW* left_wnd,
+    WINDOW* left_wnd_property,
+    WINDOW* right_wnd,
+    WINDOW* right_wnd_property,
+    WINDOW* left_design,
+    WINDOW* right_design,
+    WINDOW* help_wnd,
+    WINDOW* current_left,
+    WINDOW* current_right);
