@@ -1,10 +1,10 @@
 #include "header.h"
 
-void edit_mode(WINDOW* edit_wnd)
+void edit_mode(WINDOW* edit_wnd,char *filename)
 {
     int buf;
     int row = 1, col = 0; //нулевая строка занята меню
-    char filename[MAX_NAME_SIZE] = " ";
+    
     while(1)
     {
         wrefresh(edit_wnd);
@@ -38,7 +38,7 @@ void edit_mode(WINDOW* edit_wnd)
                 wmove(edit_wnd, row - 1, col - 1);
                 if(col > 0)
                 {
-                    wdelch(edit_wnd);
+                    delch();
                     col--;
                 }
                 break;
@@ -58,7 +58,7 @@ void edit_mode(WINDOW* edit_wnd)
             case KEY_F(2): // open_file
                 wclear(edit_wnd);
                 wrefresh(edit_wnd);
-                open_file(filename, edit_wnd);
+                open_file(filename, edit_wnd,NO_ARGV_INPUT);
                 wrefresh(edit_wnd);
                 row = 1;
                 col = 0;
@@ -70,7 +70,7 @@ void edit_mode(WINDOW* edit_wnd)
     }
 }
 
-void open_file(char* filename, WINDOW* edit_wnd)
+void open_file(char* filename, WINDOW* edit_wnd,int argv_or_not)
 {
     WINDOW* subwnd;
     int file_fd;
@@ -78,11 +78,14 @@ void open_file(char* filename, WINDOW* edit_wnd)
     char buf;
     //создаем окно для ввода имени файла (более менее в центре)
     subwnd = derwin(edit_wnd, 6, 30, LINES / 2 - 5, COLS / 2 - 10);
-    wbkgd(subwnd, COLOR_PAIR(1)); //закрашиваем окно и шрифт
+    wbkgd(subwnd, COLOR_PAIR(1)); //закрашиваем окно и шрифт 
+    if (argv_or_not==0) //если открытие не через переданный параметр argv[1]
+    {       
     wprintw(subwnd, "Enter path to file:\n");
     wgetnstr(subwnd, filename, MAX_NAME_SIZE);
     filename[MAX_NAME_SIZE] = 0;
     wrefresh(subwnd);
+    }
 
     file_fd = open(filename, O_RDONLY);
 
