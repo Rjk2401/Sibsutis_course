@@ -267,6 +267,7 @@ int main(int argc, char** argv)
     delwin(help_wnd);
 
     endwin();
+    system("clear");	
     
     return 0;
 }
