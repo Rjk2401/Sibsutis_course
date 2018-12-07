@@ -114,7 +114,7 @@ void painting_wnd(WINDOW* left_wnd,
     wmove(right_design, 1, 3 * COLS / 8 + 1);
     wprintw(right_design, "Size");
     wmove(help_wnd, 0, 1);
-    wprintw(help_wnd, "Enter-change directory | TAB - Switch window | F10-Exit");
+    wprintw(help_wnd, "Enter-change directory | TAB - Switch window | F5- copy file | F10-Exit");
 }
 
 void initial_position(WINDOW* wnd, int* row, int* col)
@@ -156,4 +156,142 @@ void init_again(WINDOW* left_wnd,
     wrefresh(help_wnd);
     wrefresh(current_left);
     wrefresh(current_right);
+}
+
+void* thread_copy(void* arg)
+{
+    FILE *fp1, *fp2;
+    char mas[SIZE_BUF_FOR_COPY];
+    struct thread_data* my_data = (struct thread_data*)arg;
+    size_t read;
+
+    if((fp1 = fopen(my_data->first_file, "r")) == NULL)
+    {
+        wmove(my_data->copy_wnd, 4, 0);
+        wprintw(my_data->copy_wnd, "wrong path!");
+        wrefresh(my_data->copy_wnd);
+        pthread_exit(0);
+    }
+
+    if((fp2 = fopen(my_data->second_file, "w+")) == NULL)
+    {
+        wmove(my_data->copy_wnd, 4, 0);
+        wprintw(my_data->copy_wnd, "wrong path!");
+        wrefresh(my_data->copy_wnd);
+        fclose(fp1);
+        pthread_exit(0);
+    }
+
+    while((read = fread(mas, 1, SIZE_BUF_FOR_COPY, fp1)) != 0)
+    {
+        fwrite(mas, 1, read, fp2);
+    }
+    fclose(fp1);
+    fclose(fp2);
+
+    pthread_exit(0);
+}
+
+void* thread_status_copy(void* arg)
+{
+    struct thread_data* my_data = (struct thread_data*)arg;
+    struct stat file1_info;
+    struct stat file2_info;
+
+    if(stat(my_data->first_file, &file1_info) != 0)
+    {
+        pthread_exit(0);
+    }
+
+    file2_info.st_size = 0;
+
+    while(file2_info.st_size < file1_info.st_size)
+    {
+        if(stat(my_data->second_file, &file2_info) == 0)
+        {
+            wmove(my_data->copy_wnd, 3, 0);
+            wprintw(my_data->copy_wnd, "status of copy:%%%.1f",
+                (double)((double)file2_info.st_size / file1_info.st_size) * 100);
+            wrefresh(my_data->copy_wnd);
+        }
+    }
+
+    pthread_exit(0);
+}
+
+void fill_data_threads(struct thread_data* data, WINDOW* copy_wnd, char* filemane, char* curent_dir)
+{
+    char path[MAX_PATH_SIZE];
+    curs_set(1);
+    echo();
+    wbkgd(copy_wnd, COLOR_PAIR(3) | A_BOLD);
+    wprintw(copy_wnd, "Enter path to copy file:\n");
+    wgetnstr(copy_wnd, path, MAX_PATH_SIZE);
+    path[MAX_PATH_SIZE] = 0;
+
+    /*формирование данных для потоков*/
+    data->copy_wnd = copy_wnd;
+    getcwd(curent_dir, MAX_PATH_SIZE);
+    strcat(curent_dir, "/");
+    strcat(curent_dir, filemane);
+    strcpy(data->first_file, curent_dir);
+
+    strcpy(data->second_file, path);
+}
+
+int check_path_exist(char* path)
+{
+    struct stat file_info;
+    if(stat(path, &file_info) == 0)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+void type_msg_wnd(WINDOW* copy_wnd,int row, int col, char *message)
+{
+   wmove(copy_wnd, row, col);
+   wprintw(copy_wnd, message);
+   wrefresh(copy_wnd); 
+}
+
+void create_threads(pthread_t* tid_copy_thread, pthread_t* tid_status_thread, struct thread_data* data)
+{
+    int result;
+    result = pthread_create(tid_copy_thread, NULL, thread_copy, data);
+    if(result != 0)
+    {
+        perror("Creating the first TCP thread");
+        exit(EXIT_FAILURE);
+    }
+
+    result = pthread_create(tid_status_thread, NULL, thread_status_copy, data);
+    if(result != 0)
+    {
+        perror("Creating the second TCP thread");
+        exit(EXIT_FAILURE);
+    }
+
+}
+
+void join_all_threads(pthread_t tid_copy_thread, pthread_t tid_status_thread)
+{
+    int result;
+    result = pthread_join(tid_copy_thread, NULL);
+    if(result != 0)
+    {
+        perror("Joining the first thread");
+        exit(EXIT_FAILURE);
+    }
+
+    result = pthread_join(tid_status_thread, NULL);
+    if(result != 0)
+    {
+        perror("Joining the first thread");
+        exit(EXIT_FAILURE);
+    }
 }

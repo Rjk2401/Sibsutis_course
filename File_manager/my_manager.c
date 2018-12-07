@@ -16,12 +16,15 @@ int main(int argc, char** argv)
     char editor_path[MAX_PATH_SIZE] = "";      //директория редактора
     int row_left = 2;                          //текущее положение курсора левой части
     int col_left = 1;
-    int row_right = 2; //текущее положение курсора правой части
+    int row_right = 2;                         //текущее положение курсора правой части
     int col_right = 1;
     int file_number_left = 0;  //текущий (выделенный *) номер файла слева
     int file_number_right = 0; //текущий (выделенный *) номер файла справа
     int mode = 0;              //режим (0-левая часть;1-правая часть)
     pid_t pid;                 //идентификатор процесса
+    struct thread_data data;   //структура данных процесса
+    pthread_t tid_copy;            //идентификаторы потоков
+    pthread_t tid_status;
 
     WINDOW* left_wnd;           //левое окно с именами файлов
     WINDOW* left_wnd_property;  //левое окно c параметрами
@@ -32,6 +35,7 @@ int main(int argc, char** argv)
     WINDOW* help_wnd;           //окно описания функционала
     WINDOW* current_left;       //окно для текущей директории левой части
     WINDOW* current_right;      //окно для текущей директории правой части
+    WINDOW* copy_wnd;           //всплывающее окно при копировании
 
     initscr();
     signal(SIGWINCH, sig_winch);
@@ -42,6 +46,7 @@ int main(int argc, char** argv)
     start_color(); //включение поддержки цветов
     init_pair(1, COLOR_GREEN, COLOR_BLACK);
     init_pair(2, COLOR_BLACK, COLOR_GREEN);
+    init_pair(3, COLOR_RED, COLOR_WHITE);
 
     refresh();
 
@@ -57,24 +62,25 @@ int main(int argc, char** argv)
     current_right = newwin(1, COLS / 2, LINES - 2, COLS / 2);
     /*оформление окон*/
     painting_wnd(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design, right_design, help_wnd,
-        current_left, current_right);
-    
+                 current_left, current_right);
+
     /*получаем путь к редактору*/
     getcwd(editor_path, MAX_PATH_SIZE);
-    strcat(editor_path,"/Editor");
+    strcat(editor_path, "/Editor");
     /*получение и вывод текущей директории*/
     getcwd(curent_dir_left, MAX_PATH_SIZE);
     getcwd(curent_dir_right, MAX_PATH_SIZE);
     wprintw(current_left, "%s", curent_dir_left);
     wprintw(current_right, "%s", curent_dir_right);
-    
+
     /*получение структуры struct dirent (изначально оддинаковые)*/
     number_files_left = scandir(".", &namelist_left, 0, alphasort);
     number_files_right = scandir(".", &namelist_right, 0, alphasort);
     if(number_files_left < 0)
         perror("scandir");
     else
-    { /*вывод в окна информации о файлах в текущей директории (имя и размер)*/
+    {
+        /*вывод в окна информации о файлах в текущей директории (имя и размер)*/
         for(int i = 0; i < number_files_left; i++)
 
         {
@@ -137,7 +143,8 @@ int main(int argc, char** argv)
 
         case 10:          // Enter - переход в другую директорию
             if(mode == 0) //если левая часть активна
-            {             //сначала проверяем является ли файл директорией
+            {
+                //сначала проверяем является ли файл директорией
                 stat(namelist_left[file_number_left]->d_name, &file_info);
                 if(S_ISDIR(file_info.st_mode)) // если это директория
                 {
@@ -146,12 +153,13 @@ int main(int argc, char** argv)
                     /*выделяем память и получаем новую структуру dirent*/
                     read_entries(curent_dir_left, &number_files_left, &namelist_left);
                     if(number_files_left < 0)
-                    { /*если прав доступа недостаточно, то получаем текущий ПОЛНЫЙ путь и формируем структуру dirent*/
+                    {
+                        /*если прав доступа недостаточно, то получаем текущий ПОЛНЫЙ путь и формируем структуру dirent*/
                         getcwd(curent_dir_left, MAX_PATH_SIZE);
                         read_entries(curent_dir_left, &number_files_left, &namelist_left);
                     }
-                    else //если прав достаточно,то переходим в выбранную директорию
-                        chdir(curent_dir_left);
+                    else
+                        chdir(curent_dir_left); //если прав достаточно,то переходим в выбранную директорию
 
                     /*очистка окон*/
                     wclear(left_wnd);
@@ -163,33 +171,32 @@ int main(int argc, char** argv)
                     wclear(current_left);
                     wprintw(current_left, "%s", curent_dir_left);
                     wrefresh(current_left);
-                    /*cбрасываем номер текущего файла*/
-                    file_number_left = 0;
+                    file_number_left = 0; /*cбрасываем номер текущего файла*/
                     /*установка указателя (*) в начало открытой директории*/
-                     initial_position(left_design,&row_left, &col_left);                   
+                    initial_position(left_design, &row_left, &col_left);
                 }
                 if(S_ISREG(file_info.st_mode)) // если это обычный файл
                 {
-                    pid=fork();
-                    if (pid == 0)
+                    pid = fork();
+                    if(pid == 0)
                     {
-                        if (execl(editor_path, "Editor", namelist_left[file_number_left]->d_name, NULL) < 0)
-                        {               
+                        if(execl(editor_path, "Editor", namelist_left[file_number_left]->d_name, NULL) < 0)
+                        {
                             exit(-1);
-                        }  
+                        }
                     }
                     else
                     {
                         wait(NULL);
-                        //обновление окон после закрытие редактора                      
-                        init_again(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design, right_design, help_wnd,
-        current_left, current_right);
+                        /*обновление окон после закрытие редактора*/
+                        init_again(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design,
+                                   right_design, help_wnd, current_left, current_right);
                     }
                 }
-                
             }
-            else //правая часть активна
-            {   //дальнейшие действия аналогичны
+            else /*правая часть активна*/
+            {
+                /*дальнейшие действия аналогичны*/
                 stat(namelist_right[file_number_right]->d_name, &file_info);
                 if(S_ISDIR(file_info.st_mode))
                 {
@@ -214,48 +221,134 @@ int main(int argc, char** argv)
                     wclear(current_right);
                     wprintw(current_right, "%s", curent_dir_right);
                     wrefresh(current_right);
-                    
+
                     file_number_right = 0;
 
-                    initial_position(right_design, &row_right, &col_right);                   
+                    initial_position(right_design, &row_right, &col_right);
                 }
-                if(S_ISREG(file_info.st_mode)) // если это обычный файл
+                if(S_ISREG(file_info.st_mode)) /*если это обычный файл*/
                 {
-                    pid=fork();
-                    if (pid == 0)
+                    pid = fork();
+                    if(pid == 0)
                     {
-                        if (execl(editor_path, "Editor", namelist_right[file_number_right]->d_name, NULL) < 0)
-                        {               
+                        if(execl(editor_path, "Editor", namelist_right[file_number_right]->d_name, NULL) < 0)
+                        {
                             exit(-1);
-                        }  
+                        }
                     }
                     else
                     {
                         wait(NULL);
-                        /*обновление окон после закрытие редактора*/                        
-                        init_again(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design, right_design, help_wnd,
-        current_left, current_right);
+                        /*обновление окон после закрытие редактора(ТОПОРНЫЙ МЕТОД)*/
+                        init_again(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design,
+                                   right_design, help_wnd, current_left, current_right);
+                        /*init_again окрашивает по умолчанию левое окно как активное => меняем подсветку */
+                        wbkgd(current_left, COLOR_PAIR(1) | A_BOLD);
+                        wbkgd(current_right, COLOR_PAIR(2) | A_BOLD);
+                        wrefresh(current_left);
+                        wrefresh(current_right);
                     }
                 }
             }
             break;
 
         case '\t': // tab
-        {
             change_mode(current_left, current_right, &mode, curent_dir_left, curent_dir_right);
+            break;
+        case KEY_F(5): //копирование файла
+        {
+            if(mode == 0) //если левая часть активна
+            {
+                stat(namelist_left[file_number_left]->d_name, &file_info);
+                if(S_ISREG(file_info.st_mode)) //копирование файла
+                {
+                    copy_wnd = newwin(6, 40, LINES / 2 - 5, COLS / 2 - 20);
+                    /*заполнение данных для потоков*/
+                    fill_data_threads(&data, copy_wnd, namelist_left[file_number_left]->d_name, curent_dir_left);
+                    /*проверяем корректный ли введен путь*/
+                    if(check_path_exist(data.second_file) == 1)
+                    {
+                        /*дополняем путь именем файла*/
+                        strcat(data.second_file, "/");
+                        strcat(data.second_file, namelist_left[file_number_left]->d_name);
+                        if(strcmp(curent_dir_left, data.second_file) == 0)
+                        {
+                            strcat(data.second_file, "(copy)");/*если выбран тот же католаг, то дополняем имя (copy)*/
+                        }
+                        /*создание потоков*/
+                        create_threads(&tid_copy, &tid_status, &data);
+                        /*присоединение потоков*/
+                        join_all_threads(tid_copy, tid_status);
+                        wrefresh(copy_wnd);
+                        /*отправка сообщения на окно об успешном завершении*/
+                        type_msg_wnd(copy_wnd, 5, 0, "End of copy, press any button to close");
+                    }
+                    else /*отправка сообщения на окно о неудачном завершении*/
+                        type_msg_wnd(copy_wnd, 4, 0, "Wrong path! press any button to close");
+
+                    /*ждем нажатия любой кнопки*/
+                    wgetch(copy_wnd);
+                    wclear(copy_wnd);
+                    wrefresh(copy_wnd);
+                    delwin(copy_wnd);
+                    /*обновляем окна*/
+                    init_again(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design, right_design,
+                               help_wnd, current_left, current_right);
+                }
+            }
+            else //если правая часть активна
+            {
+                /*дальнейшие действия аналогичны левой части*/
+                stat(namelist_right[file_number_right]->d_name, &file_info);
+                if(S_ISREG(file_info.st_mode))
+                {
+                    copy_wnd = newwin(6, 40, LINES / 2 - 5, COLS / 2 - 20);
+                    /*заполнение данных для потоков*/
+                    fill_data_threads(&data, copy_wnd, namelist_right[file_number_right]->d_name, curent_dir_right);
+                    if(check_path_exist(data.second_file) == 1)
+                    {
+                        strcat(data.second_file, "/");
+                        strcat(data.second_file, namelist_right[file_number_right]->d_name);
+                        if(strcmp(curent_dir_right, data.second_file) == 0)
+                        {
+                            strcat(data.second_file, "(copy)");
+                        }
+
+                        create_threads(&tid_copy, &tid_status, &data);
+
+                        join_all_threads(tid_copy, tid_status);
+                        wrefresh(copy_wnd);
+                        type_msg_wnd(copy_wnd, 5, 0, "End of copy, press any button to close");
+                    }
+                    else
+                        type_msg_wnd(copy_wnd, 4, 0, "Wrong path! press any button to close");
+                    wgetch(copy_wnd);
+                    wclear(copy_wnd);
+                    wrefresh(copy_wnd);
+                    delwin(copy_wnd);
+                    init_again(left_wnd, left_wnd_property, right_wnd, right_wnd_property, left_design, right_design,
+                               help_wnd, current_left, current_right);
+                    /*init_again окрашивает по умолчанию левое окно как активное => меняем подсветку */
+                    wbkgd(current_left, COLOR_PAIR(1) | A_BOLD);
+                    wbkgd(current_right, COLOR_PAIR(2) | A_BOLD);
+                    wrefresh(current_left);
+                    wrefresh(current_right);
+                }
+            }
+
             break;
         }
         }
         wrefresh(left_design);
         wrefresh(right_design);
-    }//выход из while
-    
+    } //выход из while
+
     /*Нажата кнопка F10*/
-    
+
     /*освобождаем память для структур и окон и выходим*/
     free_entries(namelist_left, number_files_left);
-    free_entries(namelist_right, number_files_right);  
-    
+    free_entries(namelist_right, number_files_right);
+
     delwin(left_wnd);
     delwin(right_wnd);
     delwin(left_design);
@@ -267,7 +360,7 @@ int main(int argc, char** argv)
     delwin(help_wnd);
 
     endwin();
-    system("clear");	
-    
+    system("clear");
+
     return 0;
 }

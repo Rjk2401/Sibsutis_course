@@ -9,7 +9,7 @@ OBJECTS=$(SOURCES:%.c=%.o)
 # Флаги для компилятора
 CFLAGS =-std=c99 -Wall -Werror -Wdeclaration-after-statement
 # Флаги компоновщика (линковщика)
-LDFLAGS=-lncurses
+LDFLAGS=-lncurses -lpthread
 # Статические библиотеки
 STATIC_LIB=
 
