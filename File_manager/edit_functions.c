@@ -265,14 +265,14 @@ void create_threads(pthread_t* tid_copy_thread, pthread_t* tid_status_thread, st
     result = pthread_create(tid_copy_thread, NULL, thread_copy, data);
     if(result != 0)
     {
-        perror("Creating the first TCP thread");
+        perror("Creating the first thread");
         exit(EXIT_FAILURE);
     }
 
     result = pthread_create(tid_status_thread, NULL, thread_status_copy, data);
     if(result != 0)
     {
-        perror("Creating the second TCP thread");
+        perror("Creating the second thread");
         exit(EXIT_FAILURE);
     }
 
@@ -291,7 +291,7 @@ void join_all_threads(pthread_t tid_copy_thread, pthread_t tid_status_thread)
     result = pthread_join(tid_status_thread, NULL);
     if(result != 0)
     {
-        perror("Joining the first thread");
+        perror("Joining the second thread");
         exit(EXIT_FAILURE);
     }
 }
