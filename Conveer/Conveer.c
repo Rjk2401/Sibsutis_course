@@ -1,5 +1,5 @@
 /*
- * Аналог башевского: ls -la | grep a 
+ * Аналог башевского: ls -la | grep a
 */
 
 #include <stdio.h>
@@ -10,16 +10,30 @@
 
 void first_command(int fd[2])
 {
-    dup2 (fd[1], STDOUT_FILENO);
     close (fd[0]);
-    execl("/bin/ls", "ls", "-la", NULL);
+    close(STDOUT_FILENO);
+    dup2 (fd[1], STDOUT_FILENO);
+    close (fd[1]);
+    
+    if (execl("/bin/ls", "ls", "-la", NULL)<0)
+    {
+        perror("execl");
+        exit(2);
+    }
 }
 
 void second_command(int fd[2])
 {
-    dup2 (fd[0], STDIN_FILENO);
     close (fd[1]);
-    execl("/bin/grep", "grep", "a", NULL);
+    close(STDIN_FILENO);
+    dup2 (fd[0], STDIN_FILENO);
+    close(fd[0]);
+    
+    if (execl("/bin/grep", "grep", "a", NULL)<0)
+    {
+        perror("execl");
+        exit(3);
+    }
 }
 
 int main(int argc, char **argv)
@@ -28,8 +42,8 @@ int main(int argc, char **argv)
     pid_t pid;
 
     if (pipe (fd)!=0)
-        perror ("pipe");    
-    
+        perror ("pipe");
+
     pid = fork();
     if( pid == -1)
     {
@@ -41,7 +55,7 @@ int main(int argc, char **argv)
         first_command(fd);
         exit (1);
     }
-    
+
     pid = fork();
     if( pid == -1)
     {
@@ -50,13 +64,14 @@ int main(int argc, char **argv)
     }
     else if (pid == 0)
     {
-        second_command(fd);   
+        second_command(fd);
     }
-    
+
     close (fd[0]);
     close (fd[1]);
-    
+
     wait(NULL);
 
     return 0;
 }
+
