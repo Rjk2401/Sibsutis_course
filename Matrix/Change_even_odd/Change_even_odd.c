@@ -1,7 +1,6 @@
 #include <stdio.h>
 
 #define N 6 //число столбцов и строк двумерного массива
-#define V 6
 
 /* Замена четных и нечетных столбцов местами */
 void change_cols(short* massive)
